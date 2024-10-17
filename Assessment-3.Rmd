@@ -1,0 +1,336 @@
+---
+title: "Assessment-3"
+author: "Avinash Meka (s4648886), Divya Sree Kasturi (s4651477)"
+date: "06/09/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Case Review and Business Problem
+#In the numerous data resources available we chose the dataset of Mall Customer Segmentation Data which is based on market analysis. The data set is for created for the customer fragmentation precisely known as market basket analysis.The various attributes in the available dataset are the Customer ID, Gender, Age, Annual Income,Spending Score.
+#A leading supermarket mall consists of membership cards which have to be assigned based on the various parameters. The Spending Score is assigned to the consumer in regard to the customer behavious and the regular purchases on their individual information.
+#The fundamental agenda to pursue this segmentation is to record the stakeholders who can easily converge[Target customers] so that it can be given to the marketing team plan and process the blue-print accordingly.
+
+
+#The main business problems which has to be addressed are:
+# 1. Factors which effect the spending score of the customer?
+#	1.1 Does Gender effect the spending score?
+#	1.2 Will Age which effect spending score?
+#	1.3 Is Income and spending score proportional?
+#	1.4 Categorising the spending score.
+# 1.5 How can we increase sales using the provided data?
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+library(skimr)
+library(janitor)
+library(scales)
+#install.packages("plotrix")
+library(plotrix)
+library(cluster)
+```
+#loading the library tidyverse- to load ggplots, strings
+#loading the library janitor- to clean the data
+#loading the library skimr- to summarise and the skim the data in the dataset.
+#loading the library  scale- to provide range to the graphs.
+
+```{r}
+set.seed(123)
+```
+#The seed() function specifies 
+#the starting number for generating a sequence of random numbers, 
+#ensuring that you obtain the same result every time you execute the same procedure.
+#random number value of 123 is used as the seed to reproduce a certain sequence of random numbers
+
+```{r}
+mall_customers<-read_csv("Mall_Customers.csv")
+mall_customers<-mall_customers%>%clean_names()
+```
+#reading the required data set mallcustomers. csv
+#cleaning the names of the dataset and assigning it to a new dataset mall_customers.csv
+
+```{r}
+skim(mall_customers)
+summary(mall_customers)
+```
+#skim and summary is to  provide a wide and broad oveviwe of the data frame along eith the data types of the available variables in the dataset.
+#The dataset consists of 5 variables namely customer_id, Gender, age, annual income, spending score with the size of 200 rows and 7 coloums consisting of 1 character variable, 2 factorised variables and 4 numeric variables.
+
+```{r}
+mall_customers%>%count(gender,sort = TRUE)
+
+mall_customers%>%ggplot(aes(gender,fill = gender))+geom_bar()
+```
+#counting the people visiting the supermarket mall respect to their gender, displayed to be male and female.
+#The graphical representation of bar graph between the gender, and the Female gender documents to be the increased in number.
+#The female shoppers are 112 whereas the male shoppers are 88.
+
+
+```{r}
+mall_customers%>%ggplot(aes(age,fill = gender))+geom_boxplot()
+```
+#The detailed and transparent illustrative presentation of the boxplot drawing comaprisions between the age group expected in the store.
+#The male group who are anticipating the store are in the age group of 35 to 50. Besides, female group are marked from 32 to 45(approximately)
+
+```{r}
+mall_customers%>%ggplot(aes(annual_income_k,fill = gender))+geom_density()
+```
+#the symbolic representtion of the annaual income of male and female is distributed in the density graph which states the the income level between 50k to 100k, where the females has the highest density of income with 0.015 accurately, while male have the density noted to 0.012
+
+
+
+```{r}
+mall_customers%>%ggplot(aes(spending_score_1_100,fill = gender))+geom_histogram()
+```
+#The visual description of spending score vs the number of people purchasing under a range-it is displayed that the interval between the 0-25 the male purchaser are layering with 7 which are the highest, the females shines with 12
+#The second range stands from 25k to 50k where the females are leading with 20where the mens population in the mall is derprived to 10 and 5 in few cases.
+#The third scale  describes the 50k to 70k  where the women are with 13 and men are with lowest frequency 3 and oscillating between 5 to 3.
+#The fourth scale is from 75k to 100k the guys are matches with the score of 6 to the highest where as the girls are surginf with 15.
+
+
+#Factors which effect the spending score of the customer.
+#Does age effect the spending score?
+```{r}
+mall_customers%>%ggplot(aes(age,spending_score_1_100,colour = gender))+geom_jitter()
+```
+#Ans-Yes, the age is effecting the spending score of the mall\
+#The mall is accomplished and crowdy welcoming all the age groups, with highest majority of females betweenn the age group of 20-40 
+#The males with the same age group are less in number in foil with the women
+#The customers in the mall are plotted with jitter portraying the accurate data of the customer's age and their spending score.
+#The evident graph shows the age group of 20-40 buy huge with few wigwaggins with data given. In the age scale females are numerous and magnificient parallel to the male consumers.
+#The ladies are with high spending frequency with 100 
+#The age group of 40 to 70 proclaims dwindling of  purchases in both male and females recorded to 60 approximately.
+#The scale from 60-70 has the downfall of customers to the mart.
+
+
+```{r}
+mall_customers%>%ggplot(aes(age,annual_income_k,colour = gender))+geom_jitter()
+```
+#The vivid demonstration between the annual income and age where the section 30-40 is considered to earn huge 130k by men and women are 110k. 
+#The close introspection proofs the majority of females over males.
+
+
+
+
+```{r}
+customer_split<-mall_customers%>%initial_split()
+
+customer_split
+```
+#The set of customers  dataset are divided into two fragments namely training dataset and testing dataset
+#where the complete analysis is 200 divided into 150 and 50 respectively to trainiing and test
+
+```{r}
+customer_train<-training(customer_split)
+customer_train
+customer_test<-testing(customer_split)
+customer_test
+```
+#the classic dataset is segmented into 2 various datasets with the similar data variables like customer_id, age, gender, annual income and spending score.
+
+```{r}
+recipe_cust<-recipe(spending_score_1_100~annual_income_k+age+gender,data = customer_train)
+```
+#a new variable recipe_cust is create a recipe with predictors as the summation of annual income, age, genderm data equalising to the training set of the customer and the outcome deliverd is the spending score.
+```{r}
+recipe_cust_steps<-recipe_cust%>%
+  step_center(all_numeric_predictors())%>%
+  step_scale(all_numeric_predictors())%>%
+  step_dummy(all_nominal_predictors())
+recipe_cust_steps
+```
+#The steps of recipe_cust are denoted as recipe_cust_steps assigning the procedural steps to the recipe customers.
+#the following steps are step_center, step_scale, step_dummy
+#Step center creates a recipe step specification that will normalise numeric data to have a mean of zero.
+#An updated version of the recipe, with a new step added to the original steps' sequence 
+#step scale generates a recipe step specification that normalises numeric data to a standard deviation of one.
+#A new step has been added to the sequence of existing steps in this revised version of the recipe.
+#From a factor variable, step dummy() creates a set of binary dummy variables. By default, the first level of the unordered factor being converted will be assigned to the excluded dummy variable (i.e. the reference cell).
+
+```{r}
+prepped_recipe<-prep(recipe_cust_steps,training = customer_train)
+prepped_recipe
+```
+#the prepped_recipe is used to for training dataset, where all the parameters, operations, of the recipe are passed into a dataset.
+
+```{r}
+juice(prepped_recipe)
+```
+#The extracted pulp of data from the training set which is accumulated in the prep inherited from the recipe is derived into the juice.
+
+```{r}
+preprocess_train<-bake(prepped_recipe,customer_train)
+preprocess_test<-bake(prepped_recipe,customer_test)
+```
+#the final  and the end output is baked and  the data from the respective training and testing datasets is saved in the preprocess_train and preprocess_test
+
+#clustering
+```{r}
+kl<-  kmeans(customer_train[,4:5],5,iter.max = 100,nstart = 100,algorithm = "Lloyd")
+
+sl<-plot(silhouette(kl$cluster,dist(customer_train[,4:5],"euclidean")))
+```
+#Clustering is an unsupervised learning technique in R that divides the data set into various groups called clusters based on their similarity. Following data segmentation, several clusters of data are created. A cluster's objects all have similar properties.
+#Applications of Clustering in R--
+#	Marketing,
+#	Medical Science,
+#	Games
+#K-Means is an unsupervised learning algorithm-based iterative hard clustering technique. The total number of clusters is pre-defined by the user, and the data points are clustered based on how similar they are. This algorithm also determines the cluster's centroid.
+##[,4:5],5 is the number of variables in the available dataset that is the annual income and the spending score
+#iteration max is the number of maximum iterations with the distinct clusters
+#nstart represents number of random sets to be chosen
+#kmeans() now has a Lloyd's algorithm option; the default Hartigan and Wong (1979) algorithm is substantially smarter. It updates the centroids whenever a point is moved, just as MacQueen's algorithm (MacQueen, 1967); it also makes clever (time-saving) decisions when looking for the closest cluster.
+#It represents  clusters a set of observations or cases (imagine rows of a nxp matrix or Reals points) into k groups. It aims to reduce the sum of squares within the cluster.
+
+```{r}
+clust = prcomp(customer_train[,4:5], scale. = FALSE)
+clust
+```
+#Returns the results of a principle components analysis on the specified data matrix as an object of class prcomp with avoids zero mean and variance.
+
+#Is Income and spending score proportional?
+```{r}
+set.seed(123)
+customer_train%>%
+  ggplot(aes(annual_income_k,spending_score_1_100,colour = as.factor(kl$cluster)))+
+  geom_point()
+```
+#Ans: Yes there is a dependency proportion between the spending score and the annual income,
+#	The customers are divided to varied group of clusters and are segregated with annual income ans spending score.
+#	Each cluster represents a set of customer training data and a number of 150 are broken into 5 clusters.
+#The pictorial interpretation of a customer_training dataset depicts a pointed graph between the spending score and the annual income.
+#the clusters are derived in the form a factors
+# the cluster 1 represents the scale of annual income from 0 to 50 k with the spending score between 0 to 45
+#The cluster 2 represents the annaula income of 0 to 50k with the spending score more than 55k(approx) to 100k
+#the cluster 3 is the major cluster of people purchasing with the annual income betwwn 40k to 60k with the spending score of 45 to 70
+#The cluster 4 is the one with the second leading team with the annual income of 70k to 120k with the spending  score of 60 to 98
+#The cluster 5 describes the annual income to be between 55k to 120k and the spending score to be noted from 1 to 45.
+
+#boost tree
+```{r}
+metr_s<-metric_set(rmse)
+```
+#metric set() combines many metric functions into a single function that calculates all of them at the same time.
+#The root mean square error between actual and anticipated values is calculated using the rmse() function in R's Metrics package. ... as expected: The predicted numeric vector, in which each member is a prediction for the corresponding element in actuarial data.
+
+```{r}
+grid_con<-control_grid(save_pred = TRUE,
+                           save_workflow = TRUE,
+                           extract = extract_model)
+```
+#control_grid is used for aspects of the grid search process can be controlled.
+# save_prep is used for each model examined, a logical for whether the out-of-sample predictions should be saved.
+# save_workflow is for  the workflow should be appended to the output as an attribute, this is a logical.
+# extract is utilised for using regular expression groups, split a character column into numerous columns.
+
+```{r}
+cust_fold<-vfold_cv(customer_train,5)
+```
+#V-fold cross-validation divides data into V groups of nearly equal size at random (called "folds"). 
+#V-1 of the folds was included in a resample of the analysis data,
+
+```{r}
+model_a<-boost_tree(mode = "regression",
+                      engine = "xgboost",
+                      mtry = tune(),
+                      trees = tune(),
+                      learn_rate = tune())
+```
+#mtry is for the tree and rule-based models have parameter objects.
+#These are modelling objects, which can be used in conjunction with the parsnip package.
+#Tree is a graph that depicts choices and their outcomes as a tree. 
+#The graph's nodes represent events or choices, while the graph's edges reflect decision rules or conditionsIt's primarily utilised in R-based Machine Learning and Data Mining applications.
+#The parameter learn_rate is used in boosting methods (parsnip::bos or some types of neural network optimization methods.
+
+```{r}
+flow<-workflow(prepped_recipe,model_a)
+```
+#A workflow is a container object that collects all of the data needed to fit and predict a model. This information could be a preprocessing recipe supplied via add recipe() or a model specification to fit specified via add model() .
+
+```{r}
+recipe_tune<-flow%>%tune_grid(cust_fold,
+                              metrics = metr_s,
+                              control = grid_con,
+                              grid = crossing(mtry = c(7),
+                                              trees = seq(250, 1500, 25),
+                                              learn_rate = c(.008, .01)))
+```
+#A positive integer or a data frame of tuning combinations. The data frame should comprise rows for tuning parameter candidates and columns for each parameter being adjusted. The number of candidate parameter sets to be created automatically is represented by an integer.
+#tune grid() calculates a set of performance measures for a pre-defined set of tuning parameters that correspond to a model or recipe over one or more data resamples.
+
+```{r}
+recipe_tune%>%collect_metrics()
+autoplot(recipe_tune)
+```
+#collect metrics computes and writes all datasets for the complexity metrics and arranging them in a mean
+#auto plot for xg_tune is used to visualise the data objects which aims for provide better default graphics and configurable options for each data type, making exploration quick and easy
+#The learning rate for the two comparative randomly selected predictors are noted to be 0.008 and 0.010.
+#The regression between the rmse and trees are sketching the rmse error value 25.58 and with the tree mark to be 350 and the tree rate gradually increased to 1400 for one regression model while other rmse error noted 26.8 and the tree value initially beginned to be 420 and came along with the earlier regression model with the pace of 1400.
+
+```{r}
+final<-finalize_workflow(flow,select_best(recipe_tune))%>%
+  fit(customer_train)
+```
+#finalise functions update objects with values from a list or tibble of tuning parameter values.
+#Fit a supervised data mining (classification or regression) model to the data.
+
+```{r}
+final%>%augment(customer_test) %>%
+  rmse(.pred, spending_score_1_100)
+```
+#A fast and general method for building enlarged and augumented data
+
+
+```{r}
+model<-lm(spending_score_1_100~age, data = customer_train)
+model
+summary(model)
+
+set.seed(123)
+customer_train%>%
+  ggplot(aes(age,spending_score_1_100))+
+  geom_point()+stat_smooth(method = lm)
+```
+#Regression analysis is a common statistical technique for establishing a relationship model between two variables. One of these variables is known as a predictor variable, and its value is derived via studies. The response variable, whose value is generated from the predictor variable, is the other variable.
+#lm-To make a simple regression model, use the function. The lm() function takes several arguments.
+
+
+```{r}
+mall_customers<-mall_customers%>%
+  mutate(spending_score=
+           cut_number(spending_score_1_100,3,
+                      labels=c("low_spending","avg_spending","high_spending"),
+                      ordered_results=TRUE))  
+```
+#Cut a numeric vector into 3 intervals with the same amount of points in each.
+#with  the use of cut number function the spending score is trisected into high spending, average spending and low spending.
+
+```{r}
+mall_customers<-mall_customers%>%
+  mutate(annual_income=
+           cut_number(annual_income_k,3,
+                      labels=c("low_income","avg_income","high_income"),
+                      ordered_results=TRUE))  
+```
+#with  the use of cut number function the annual income is trisected into high income, average income and low income.
+
+```{r}
+mall_customers%>%ggplot(aes(annual_income,spending_score))+geom_count()
+```
+#the overall diagrammatic documentations of the annual income and the spending_Score
+#in the form of geom_count to count the number of observations named n 
+#The low income generated class are approximately 20 who are spending on the 3 categories of spending,
+#The average income stakeholders are 10 on low spending, 40 on average spending and 5 on high spending
+#The high income consumers produce low spending close to 30 will there is no average spending evident and the high spending are 30 in number
+
+```{r}
+library(cluster)
+
+clusplot(customer_train,kl$cluster)
+```
+
