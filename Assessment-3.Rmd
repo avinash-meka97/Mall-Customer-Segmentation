@@ -1,6 +1,6 @@
 ---
-title: "Assessment-3"
-author: "Avinash Meka (s4648886), Divya Sree Kasturi (s4651477)"
+title: "MallCustomerSegmentation"
+author: "Avinash Meka"
 date: "06/09/2021"
 output: html_document
 ---
